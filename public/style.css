@@ -94,6 +94,7 @@ main {
 
 .headbar {
   flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,6 +121,27 @@ main {
 }
 #team-btn:hover {
   opacity: 1;
+}
+
+#locate-btn {
+  position: absolute;
+  right: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--headbar-font-size);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+  line-height: 1;
+}
+#locate-btn:hover,
+#locate-btn:focus-visible {
+  opacity: 1;
+}
+#locate-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 /* ==========================================================================

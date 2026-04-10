@@ -40,6 +40,41 @@
     'Washington Nationals': 120
   };
 
+  // Coordinates (latitude, longitude) for each team's home stadium.
+  // Used by findNearestTeam() to locate the closest team via the Geolocation API.
+  var TEAM_STADIUMS = [
+    { name: 'Arizona Diamondbacks', lat: 33.4453,  lon: -112.0667 },
+    { name: 'Atlanta Braves',        lat: 33.8909,  lon: -84.4677  },
+    { name: 'Baltimore Orioles',     lat: 39.2838,  lon: -76.6218  },
+    { name: 'Boston Red Sox',        lat: 42.3467,  lon: -71.0972  },
+    { name: 'Chicago Cubs',          lat: 41.9484,  lon: -87.6553  },
+    { name: 'Chicago White Sox',     lat: 41.8299,  lon: -87.6338  },
+    { name: 'Cincinnati Reds',       lat: 39.0979,  lon: -84.5067  },
+    { name: 'Cleveland Guardians',   lat: 41.4960,  lon: -81.6852  },
+    { name: 'Colorado Rockies',      lat: 39.7560,  lon: -104.9942 },
+    { name: 'Detroit Tigers',        lat: 42.3390,  lon: -83.0485  },
+    { name: 'Houston Astros',        lat: 29.7572,  lon: -95.3551  },
+    { name: 'Kansas City Royals',    lat: 39.0517,  lon: -94.4803  },
+    { name: 'Los Angeles Angels',    lat: 33.8003,  lon: -117.8827 },
+    { name: 'Los Angeles Dodgers',   lat: 34.0739,  lon: -118.2400 },
+    { name: 'Miami Marlins',         lat: 25.7781,  lon: -80.2197  },
+    { name: 'Milwaukee Brewers',     lat: 43.0280,  lon: -87.9712  },
+    { name: 'Minnesota Twins',       lat: 44.9817,  lon: -93.2783  },
+    { name: 'New York Mets',         lat: 40.7571,  lon: -73.8458  },
+    { name: 'New York Yankees',      lat: 40.8296,  lon: -73.9262  },
+    { name: 'Oakland Athletics',     lat: 38.5771,  lon: -121.5003 }, // Sutter Health Park, Sacramento (temporary home 2025)
+    { name: 'Philadelphia Phillies', lat: 39.9061,  lon: -75.1665  },
+    { name: 'Pittsburgh Pirates',    lat: 40.4469,  lon: -80.0057  },
+    { name: 'San Diego Padres',      lat: 32.7076,  lon: -117.1570 },
+    { name: 'San Francisco Giants',  lat: 37.7786,  lon: -122.3893 },
+    { name: 'Seattle Mariners',      lat: 47.5914,  lon: -122.3325 },
+    { name: 'St. Louis Cardinals',   lat: 38.6226,  lon: -90.1928  },
+    { name: 'Tampa Bay Rays',        lat: 27.7682,  lon: -82.6534  },
+    { name: 'Texas Rangers',         lat: 32.7512,  lon: -97.0832  },
+    { name: 'Toronto Blue Jays',     lat: 43.6414,  lon: -79.3894  },
+    { name: 'Washington Nationals',  lat: 38.8730,  lon: -77.0074  }
+  ];
+
   // Maps full team name → per-team inline display font-family (from fonts/stylesheet.css).
   // Teams without a dedicated font file are omitted (falls back to mlb_primary).
   var MLB_TEAM_FONTS = {
@@ -439,9 +474,67 @@
   // ----------------------------------------------------------------
 
   function loadTeam() {
-    var teams = shuffleArray(Object.keys(MLB_TEAM_IDS));
-    var team = teams[0];
+    var teamNames = shuffleArray(Object.keys(MLB_TEAM_IDS));
+    var team = teamNames[0];
     window.location.href = window.location.pathname + '?team=' + encodeURIComponent(team);
+  }
+
+  /**
+   * Calculate the great-circle distance between two points using the Haversine formula.
+   * @param {number} lat1 - Latitude of the first point in degrees.
+   * @param {number} lon1 - Longitude of the first point in degrees.
+   * @param {number} lat2 - Latitude of the second point in degrees.
+   * @param {number} lon2 - Longitude of the second point in degrees.
+   * @returns {number} Distance in kilometres.
+   */
+  function getDistance(lat1, lon1, lat2, lon2) {
+    var R = 6371; // Earth radius in km
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+          + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+          * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Use the browser Geolocation API to find the nearest MLB team to the user's
+   * current position, then navigate to that team's page.
+   * Permission denials and other geolocation errors are logged to the console.
+   */
+  function findNearestTeam() {
+    if (!navigator.geolocation) {
+      console.warn('Geolocation is not supported by this browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      function (position) {
+        var userLat = position.coords.latitude;
+        var userLon = position.coords.longitude;
+        var nearest = null;
+        var minDist = Infinity;
+        for (var i = 0; i < TEAM_STADIUMS.length; i++) {
+          var entry = TEAM_STADIUMS[i];
+          var dist = getDistance(userLat, userLon, entry.lat, entry.lon);
+          if (dist < minDist) {
+            minDist = dist;
+            nearest = entry;
+          }
+        }
+        if (nearest) {
+          window.location.href = window.location.pathname + '?team=' + encodeURIComponent(nearest.name);
+        }
+      },
+      function (err) {
+        // PERMISSION_DENIED is a normal user-driven outcome; other codes are unexpected.
+        if (err.code === 1) {
+          console.warn('Geolocation permission denied.');
+        } else {
+          console.error('Geolocation error:', err.message);
+        }
+      }
+    );
   }
 
   // ----------------------------------------------------------------
@@ -451,6 +544,9 @@
   function setupEventListeners() {
     // Team button click — load a random team
     document.getElementById('team-btn').addEventListener('click', loadTeam);
+
+    // Locate button click — navigate to the nearest MLB team
+    document.getElementById('locate-btn').addEventListener('click', findNearestTeam);
 
     // Footer bar click — open stats drawer
     document.getElementById('more-details').addEventListener('click', openDrawer);
