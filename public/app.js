@@ -42,7 +42,7 @@
 
   // Coordinates (latitude, longitude) for each team's home stadium.
   // Used by findNearestTeam() to locate the closest team via the Geolocation API.
-  var teams = [
+  var TEAM_STADIUMS = [
     { name: 'Arizona Diamondbacks', lat: 33.4453,  lon: -112.0667 },
     { name: 'Atlanta Braves',        lat: 33.8909,  lon: -84.4677  },
     { name: 'Baltimore Orioles',     lat: 39.2838,  lon: -76.6218  },
@@ -514,8 +514,8 @@
         var userLon = position.coords.longitude;
         var nearest = null;
         var minDist = Infinity;
-        for (var i = 0; i < teams.length; i++) {
-          var entry = teams[i];
+        for (var i = 0; i < TEAM_STADIUMS.length; i++) {
+          var entry = TEAM_STADIUMS[i];
           var dist = getDistance(userLat, userLon, entry.lat, entry.lon);
           if (dist < minDist) {
             minDist = dist;
@@ -527,7 +527,12 @@
         }
       },
       function (err) {
-        console.error('Geolocation error:', err.message);
+        // PERMISSION_DENIED is a normal user-driven outcome; other codes are unexpected.
+        if (err.code === 1) {
+          console.warn('Geolocation permission denied.');
+        } else {
+          console.error('Geolocation error:', err.message);
+        }
       }
     );
   }
